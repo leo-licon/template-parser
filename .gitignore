@@ -127,3 +127,12 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# pyCharm
+.idea
+
+# MacOS
+.DS_Store
+
+# Avoid upload templates
+*.yaml
