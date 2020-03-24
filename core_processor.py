@@ -30,12 +30,11 @@ def add_module(template, metadata_module, project_type, full_path=False, replace
         identifier = metadata_module.get("identifier", "")
         path = f"{project_type}/modules/{metadata_module['moduleName']}"
     module = utils.load_module(path, identifier)
-
     parameters = module.get("Parameters", [])
-
-    if identifier:
+    if isinstance(metadata_module, dict):
         for parameter in parameters:
-            if default := metadata_module.get(parameter[:-len(identifier)]):
+            if default := metadata_module.get(parameter[:-len(identifier)],
+                                              metadata_module.get(parameter[:-len("Param" + identifier)])):
                 parameters.get(parameter)['Default'] = default
     if replace_value:
         k = next(iter(replace_value))
