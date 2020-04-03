@@ -3,7 +3,7 @@ import os
 import re
 from functools import reduce
 
-__all__ = ["process_extra_modules", "add_module", "process_options", "get_options", "process_base_template_generic"]
+ECS_SERVICE_TYPES = ["service", "worker"]
 
 
 def process_extra_modules(metadata, template):
@@ -23,12 +23,19 @@ def process_options(template, project_type, options):
 
 def add_module(template, metadata_module, project_type, full_path=False, replace_value=None):
     print(metadata_module)
-    identifier = ""
+
     if full_path:
+        identifier = ""
         path = metadata_module
     else:
         identifier = metadata_module.get("identifier", "")
         path = f"{project_type}/modules/{metadata_module['moduleName']}"
+    read_module(template, metadata_module, identifier, path, replace_value)
+    if os.path.exists(commons_path := path.replace(project_type, "commons")):
+        read_module(template, metadata_module, identifier, commons_path, replace_value)
+
+
+def read_module(template, metadata_module, identifier, path, replace_value):
     module = utils.load_module(path, identifier)
     parameters = module.get("Parameters", [])
     if isinstance(metadata_module, dict):
@@ -67,9 +74,26 @@ def get_options(project_type, service_options):
         return {}
 
 
-def process_base_template_generic(metadata, template, type, extra_options_funct=None):
-    base_options = metadata.get(f'{type}Options', {})
-    options = get_options(type, base_options)
-    if extra_options_funct:
-        extra_options_funct(template, options)
-    process_options(template, type, options)
+def update_description(template, options, metadata):
+    variables = []
+    for k, v in options.items():
+        if not "not-" in v["path"]:  # bad bad, clean this not not
+            variables.append(k)
+    if modules := metadata.get('modules'):
+        for module in modules:
+            if (module_name := module["moduleName"][:-5]) not in variables:
+                variables.append(module_name)
+    template["Description"] = f"Template for {metadata['type']} ({', '.join(variables)})"
+
+
+def process_template(metadata):
+    project_type = metadata['type'].lower()
+    template = utils.load_yaml_file(f"{project_type}/base.yaml", True)
+    if project_type in ECS_SERVICE_TYPES:
+        template = utils.load_ecs_service_core(template)
+    base_options = metadata.get(f'{project_type}Options', {})
+    options = get_options(project_type, base_options)
+    process_options(template, project_type, options)
+    process_extra_modules(metadata, template)
+    update_description(template, options, metadata)
+    return template

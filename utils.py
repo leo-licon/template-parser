@@ -1,32 +1,25 @@
 import yaml
 import os
+import itertools
 
-OUT_PATH = 'finalTemplates'
+OUT_PATH = 'outputs'
 if not os.path.exists(OUT_PATH):
     os.mkdir(OUT_PATH)
 
 
-def find(element, dict):
+def find(element, source_dict):
     keys = element.split('.')
-    rv = dict
+    rv = source_dict
     for key in keys:
         rv = rv[key]
     return rv
 
 
-def get_base_template(type):
-    with open(f"{type}/base.yaml", 'r') as stream:
-        #        ^..^         Ugly replace here :(
-        #       ( oo )   )~
-        #         ,,   ,,
-        base = stream.read().replace("!", "\\!")
+def load_yaml_file(path, replace=False):
+    print(f"loading {path}")
+    with open(path, 'r') as stream:
+        base = stream.read().replace("!", "\\!") if replace else stream.read()
         return yaml.load(base, Loader=yaml.SafeLoader)
-
-
-def load_metadata(path='metadata.yaml'):
-    print(f"loading metadata from {path}")
-    with open(path, 'r') as metadata_file:
-        return yaml.load(metadata_file.read(), Loader=yaml.SafeLoader)
 
 
 def load_module(module_path, module_key):
@@ -43,9 +36,12 @@ def load_module(module_path, module_key):
         return template
 
 
-def write_template(template):
-    with open(f'{OUT_PATH}/finalTemplate.yaml', mode='wt', encoding='utf-8') as outputTemplate:
-        outputTemplate.write(yaml.dump(template, width=1000, sort_keys=False).replace("\\!", "!"))
+def write_template(template, project_type):
+    with open(f'{OUT_PATH}/{project_type}.yaml', mode='wt', encoding='utf-8') as outputTemplate:
+        template = sort_template(template)
+        parsed = yaml.dump(template, width=1000, sort_keys=True).replace("\\!", "!")
+        outputTemplate.write(parsed)
+        return parsed
 
 
 def is_positive(value=None):
@@ -61,10 +57,47 @@ def merge(a, b, path=[]):
             elif a[key] == b[key]:
                 pass  # same leaf value
             elif isinstance(a[key], list):
-                a[key].extend(b[key])
+                for i, j in itertools.zip_longest(a[key], b[key]):
+                    if i and j:
+                        merge(i, j)
+                    elif j:
+                        a[key].append(j)
+                    else:
+                        break
             elif isinstance(a[key], (str, int)):
                 a[key] = b[key]
             else:
                 raise Exception('Conflict at %s' % '.'.join(path + [str(key)]))
         else:
             a[key] = b[key]
+    return a
+
+
+def load_ecs_service_core(template):
+    commons = load_yaml_file("commons/ecs-service-base.yaml", True)
+    return merge(commons, template, [])
+
+
+def sort_template(template):
+    template_forrmated = {}
+    ordered_sections = {"Parameters": ["Type", "Description", "Default"],
+                        "Resources": ["Type", "DependsOn", "Condition", "Metadata", "Properties"]}
+    for section in (
+            "AWSTemplateFormatVersion", "Description", "Parameters", "Mappings", "Conditions", "Resources", "Outputs"):
+        if value := template.get(section):
+            if section in ordered_sections:
+                value = reorder_items(value, ordered_sections[section])
+            template_forrmated[section] = value
+    return template_forrmated
+
+
+def reorder_items(items, keys):
+    ordered_items = {}
+    for name, content in items.items():
+        ordered_item = {}
+        for key in keys:
+            if (v := content.pop(key, None)) is not None:
+                ordered_item.update({key: v})
+        ordered_item.update(content)
+        ordered_items.update({name: ordered_item})
+    return ordered_items

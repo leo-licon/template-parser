@@ -134,5 +134,5 @@ dmypy.json
 # MacOS
 .DS_Store
 
-# Avoid upload templates
+currentTemplates
 *.yaml

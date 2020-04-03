@@ -1,14 +1,15 @@
 """ Creates a stack template """
 import utils
-import lambda_helper #required
-import service_helper #required
-import worker_helper #required
-import task_helper #required
+import core_processor
 
-metadata = utils.load_metadata("service-metadata.yaml")
-project_type = metadata['type']
-template = utils.get_base_template(metadata['type'])
-helper = globals()[project_type+"_helper"]
-helper.process_base_template(metadata, template)
-helper.process_extra_modules(metadata, template)
-utils.write_template(template)
+import boto3
+
+cf_client = boto3.client("cloudformation")
+complete_list = ["service", "task", "lambda", "worker"]
+
+for t in complete_list:
+    metadata = utils.load_yaml_file(f"{t}-metadata.yaml")
+    template = core_processor.process_template(metadata)
+    project_type = metadata['type']
+    t = utils.write_template(template, project_type)
+    print("VALIDATED", template["Description"],cf_client.validate_template(TemplateBody=t))
