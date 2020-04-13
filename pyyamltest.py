@@ -5,7 +5,7 @@ import core_processor
 import boto3
 
 cf_client = boto3.client("cloudformation")
-complete_list = ["service", "task", "lambda", "worker"]
+complete_list = ["service", "task", "lambda", "worker", "static", "client", "proxy"]
 
 for t in complete_list:
     metadata = utils.load_yaml_file(f"{t}-metadata.yaml")

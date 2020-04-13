@@ -22,18 +22,24 @@ def load_yaml_file(path, replace=False):
         return yaml.load(base, Loader=yaml.SafeLoader)
 
 
-def load_module(module_path, module_key):
+def load_module(module_path, module_key, doc_index=0):
     print(f"loading {module_path}")
     with open(module_path) as stream:
         base = stream.read().replace("!", "\\!")
-        template = yaml.load(base, Loader=yaml.SafeLoader)
-        names = []
-        for section in ("Parameters", "Resources"):
-            names.extend([key for key in template.get(section, {}).keys()])
-        for name in names:
-            base = base.replace(name, (name + module_key))
-        template = yaml.load(base, Loader=yaml.SafeLoader)
-        return template
+        template = get_document_on_index(base, doc_index)
+        if template:
+            names = []
+            for section in ("Parameters", "Resources"):
+                names.extend([key for key in template.get(section, {}).keys()])
+            for name in names:
+                base = base.replace(name, (name + module_key))
+            template = get_document_on_index(base, doc_index)
+            return template
+
+
+def get_document_on_index(base, doc_index):
+    templates = yaml.load_all(base, Loader=yaml.SafeLoader)
+    return next(itertools.islice(templates, doc_index, None))
 
 
 def write_template(template, project_type):

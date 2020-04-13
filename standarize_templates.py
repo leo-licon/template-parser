@@ -7,7 +7,7 @@ def get_templates(base_dir="currentTemplates"):
     if os.path.exists(base_dir):
         for f in [f"{base_dir}/{f}" for f in os.listdir(base_dir)]:
             if os.path.isdir(f):
-                if f.endswith(("lambda", "service", "worker", "task")):
+                if f.endswith(("lambda", "service", "worker", "task", "client", "static", "proxy")):
                     files.extend(get_templates(f))
             elif f.endswith(".yaml"):
                 files.append(f)
